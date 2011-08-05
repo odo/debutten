@@ -1,0 +1,12 @@
+{application, debutten,
+ [
+  {description, "A simple Erlang data validator."},
+  {vsn, "0.1.0"},
+  {modules, [debutten]},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]}.
