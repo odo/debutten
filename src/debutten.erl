@@ -35,7 +35,7 @@
 %% @spec validate_or_throw(Data::term(), Pattern::term()) -> true | false
 %% @throws {invalid_data, {Pattern::term(), Data::term()}}
 validate_or_throw(Data, Pattern) ->
-	case validation:validate(Data, Pattern) of
+	case ?MODULE:validate(Data, Pattern) of
 		true ->
 			true;
 		false ->
