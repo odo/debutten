@@ -52,6 +52,9 @@ Debutten compares terms against patterns.<br/>There are two types of patterns: P
       <td><code>{float}</code></td>
       <td>A float</td>
     </tr><tr>
+      <td><code>{numeric}</code></td>
+      <td>A float or an integer</td>
+    </tr><tr>
       <td><code>{atom}</code></td>
       <td>An atom</td>
     </tr><tr>
