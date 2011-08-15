@@ -49,6 +49,7 @@ validate(_, {'_'}) -> 						true;
 validate(String, {string}) -> 		is_string(String);
 validate(Integer, {integer}) -> 	is_integer(Integer);
 validate(Float, {float}) -> 			is_float(Float);
+validate(Number, {numeric}) -> 		is_integer(Number) orelse is_float(Number);
 validate(Atom, {atom}) -> 				is_atom(Atom);
 validate(Binary, {binary}) -> 			is_binary(Binary);
 validate(Date, {datetime}) -> is_ISO_8601_without_seconds(Date);
@@ -133,6 +134,11 @@ is_string(String) ->
 	float_test() ->
   	?assertEqual(true, validate(1.3, {float})),
   	?assertEqual(false, validate(1, {float})).
+
+	numeric_test() ->
+  	?assertEqual(true, validate(1.3, {numeric})),
+  	?assertEqual(true, validate(1, {numeric})),
+  	?assertEqual(false, validate(twelve, {numeric})).
 
 	binary_test() ->
   	?assertEqual(true, validate(<<"1.3">>, {binary})),
