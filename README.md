@@ -29,6 +29,10 @@ Usage (short version)
         false
         > debutten:validate([one, "two"], {list, [{atom}, {string}]}).
         true
+        > debutten:validate([one, "two"], {list, [one, {string}]}).
+        true
+        > debutten:validate([two, "two"], {list, [one, {string}]}).
+        false
         > debutten:validate([one, "two", three], {list, [{atom}, {string}]}).
         false
 
@@ -67,6 +71,9 @@ Debutten compares terms against patterns.<br/>There are two types of patterns: P
     </tr><tr>
       <td><code>{datetime}</code></td>
       <td>An ISO 8601 string without seconds, e.g. "2011-04-04T22:44"</td>
+    </tr><tr>
+      <td><code>any other term</code></td>
+      <td>Any term that is not a debutten pattern is compared with the =:= operator</td>
     </tr>
 </table>
 

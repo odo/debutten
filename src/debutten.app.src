@@ -1,7 +1,7 @@
 {application, debutten,
  [
   {description, "A simple Erlang data validator."},
-  {vsn, "0.1.2"},
+  {vsn, "0.1.3"},
   {modules, [debutten]},
   {registered, []},
   {applications, [

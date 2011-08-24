@@ -74,8 +74,8 @@ validate(Dict, {dict, ['_' | PatternList]}) -> validate(Dict, {dict, PatternList
 
 validate(Dict, {dict, PatternList}) -> validate(Dict, {dict, PatternList}, false);
 
-validate(Data, Pattern) -> 
-	throw({illegal_pattern, Pattern, Data}).
+validate(Data, Pattern) ->
+	Data =:= Pattern.
 
 validate(Dict, {dict, PatternList}, Tolerate_additional) ->
 	case is_dict(Dict) and is_list(PatternList) and ((Tolerate_additional =:= true) or (length(PatternList) =:= dict:size(Dict))) of
@@ -117,6 +117,10 @@ is_string(String) ->
 		?assertEqual(true, is_string("hello!")),
 		?assertEqual(false, is_string([1000])),
 		?assertEqual(false, is_string(somethingelse)).
+	
+	dentity_test() ->
+		?assertEqual(true, validate("same", "same")),
+		?assertEqual(false, validate("same", "other")).
 
 	widcard_test() ->
   	?assertEqual(true, validate("text", {'_'})),
@@ -179,6 +183,8 @@ is_string(String) ->
   	?assertEqual(false, validate([["1", "2"], ["3", 5]], Pattern)).
 
 	explicit_list_test() ->
+  	?assertEqual(true, validate([1, "hi!", last], {list, [1, {string}, {atom}]})),
+  	?assertEqual(false, validate([1, "hi!", last], {list, [2, {string}, {atom}]})),
   	?assertEqual(true, validate([1, "hi!", last], {list, [{integer}, {string}, {atom}]})).
 
 	empty_dict_test() ->
