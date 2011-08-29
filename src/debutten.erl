@@ -70,9 +70,9 @@ validate(Dict, {dict, []}) ->
 	
 validate(Dict, {dict, ['_']}) -> is_dict(Dict);
 
-validate(Dict, {dict, ['_' | PatternList]}) -> validate(Dict, {dict, PatternList}, true);
+validate(Dict, {dict, ['_' | PatternList]}) -> is_dict(Dict) andalso validate(Dict, {dict, PatternList}, true);
 
-validate(Dict, {dict, PatternList}) -> validate(Dict, {dict, PatternList}, false);
+validate(Dict, {dict, PatternList}) -> is_dict(Dict) andalso validate(Dict, {dict, PatternList}, false);
 
 validate(Data, Pattern) ->
 	Data =:= Pattern.
