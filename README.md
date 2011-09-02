@@ -72,8 +72,8 @@ Debutten compares terms against patterns.<br/>There are two types of patterns: P
       <td><code>{datetime}</code></td>
       <td>An ISO 8601 string without seconds, e.g. "2011-04-04T22:44"</td>
     </tr><tr>
-      <td><code>any other term</code></td>
-      <td>Any term that is not a debutten pattern is compared with the =:= operator</td>
+      <td><code>{exact, Term}</code></td>
+      <td>The exact term as compared with the =:= operator</td>
     </tr>
 </table>
 
