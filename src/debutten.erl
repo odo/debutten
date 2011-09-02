@@ -39,7 +39,7 @@ validate_or_throw(Data, Pattern) ->
 		true ->
 			true;
 		false ->
-			throw({invalid_data, {Data, Pattern}})
+			throw({error, {invalid_data, {Data, Pattern}}})
 	end.
 
 %% @doc Validate data against a pattern. Returns true if matching, returns false if not.
@@ -74,8 +74,11 @@ validate(Dict, {dict, ['_' | PatternList]}) -> is_dict(Dict) andalso validate(Di
 
 validate(Dict, {dict, PatternList}) -> is_dict(Dict) andalso validate(Dict, {dict, PatternList}, false);
 
-validate(Data, Pattern) ->
-	Data =:= Pattern.
+validate(Data, {exact, Pattern}) ->
+	Data =:= Pattern;
+
+validate(_, Pattern) ->
+	throw({error, {invalid_pattern, Pattern}}).
 
 validate(Dict, {dict, PatternList}, Tolerate_additional) ->
 	case is_dict(Dict) and is_list(PatternList) and ((Tolerate_additional =:= true) or (length(PatternList) =:= dict:size(Dict))) of
@@ -113,14 +116,23 @@ is_string(String) ->
 %% ===================================================================
 -ifdef(TEST).
 
+	invalide_pattern_test() ->
+		Error =
+		try
+			validate(something, {bogus_pattern})
+		catch
+			throw:Reason -> Reason
+		end,
+		?assertEqual({error,{invalid_pattern,{bogus_pattern}}}, Error).
+		
 	is_string_test() ->
 		?assertEqual(true, is_string("hello!")),
 		?assertEqual(false, is_string([1000])),
 		?assertEqual(false, is_string(somethingelse)).
 	
-	dentity_test() ->
-		?assertEqual(true, validate("same", "same")),
-		?assertEqual(false, validate("same", "other")).
+	identity_test() ->
+		?assertEqual(true, validate("same", {exact, "same"})),
+		?assertEqual(false, validate("same", {exact, "other"})).
 
 	widcard_test() ->
   	?assertEqual(true, validate("text", {'_'})),
@@ -183,8 +195,8 @@ is_string(String) ->
   	?assertEqual(false, validate([["1", "2"], ["3", 5]], Pattern)).
 
 	explicit_list_test() ->
-  	?assertEqual(true, validate([1, "hi!", last], {list, [1, {string}, {atom}]})),
-  	?assertEqual(false, validate([1, "hi!", last], {list, [2, {string}, {atom}]})),
+  	?assertEqual(true, validate([1, "hi!", last], {list, [{exact, 1}, {string}, {atom}]})),
+  	?assertEqual(false, validate([1, "hi!", last], {list, [{exact, 2}, {string}, {atom}]})),
   	?assertEqual(true, validate([1, "hi!", last], {list, [{integer}, {string}, {atom}]})).
 
 	empty_dict_test() ->
