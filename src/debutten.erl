@@ -77,6 +77,18 @@ validate(Dict, {dict, PatternList}) -> is_dict(Dict) andalso validate(Dict, {dic
 validate(Data, {exact, Pattern}) ->
 	Data =:= Pattern;
 
+validate(Data, {satisfies, Fun}) when is_function(Fun) ->
+	Fun(Data);
+
+validate(Data, {satisfies, {Function}}) ->
+	validate(Data, {satisfies, {erlang, Function}});
+
+validate(Data, {satisfies, {Module, Function}}) ->
+	apply(Module, Function, [Data]);
+
+validate(Data, {oneof, Patterns}) ->
+	lists:any(fun(E) -> E =:= true end, [validate(Data, P) || P <- Patterns]);
+
 validate(_, Pattern) ->
 	throw({error, {invalid_pattern, Pattern}}).
 
@@ -133,6 +145,14 @@ is_string(String) ->
 	identity_test() ->
 		?assertEqual(true, validate("same", {exact, "same"})),
 		?assertEqual(false, validate("same", {exact, "other"})).
+
+	fun_test() ->
+		?assertEqual(true, validate("something", {satisfies, fun(E) -> is_list(E) end})),
+		?assertEqual(false, validate(something, {satisfies, fun(E) -> is_list(E) end})),
+		?assertEqual(true, validate("something", {satisfies, {is_list}})),
+		?assertEqual(false, validate(something, {satisfies, {is_list}})),
+		?assertEqual(true, validate("something", {satisfies, {erlang, is_list}})),
+		?assertEqual(false, validate(something, {satisfies, {erlang, is_list}})).
 
 	widcard_test() ->
   	?assertEqual(true, validate("text", {'_'})),
@@ -220,6 +240,10 @@ is_string(String) ->
 		?assertEqual(true, validate(dict:from_list([{"key", "the_key"}, {"i can hide", 7}, {"value", 7}]), {dict, ['_', {"key", {string}}, {"value", {integer}}]})),
 		?assertEqual(false, validate(dict:from_list([{"value", 7}]), {dict, ['_', {"key", {string}}, {"value", {integer}}]})),
 		?assertEqual(false, validate(dict:from_list([{"key", "the_key"}, {"i can hide", 7}, {"value", no_allowed}]), {dict, ['_', {"key", {string}}, {"value", {integer}}]})).
+
+	oneof_test() ->
+		?assertEqual(true, validate(atom, {oneof, [{atom}, {integer}]})),
+		?assertEqual(false, validate(<<"atom">>, {oneof, [{atom}, {integer}]})).		
 
 	combination_test() ->
 		Data = dict:from_list([

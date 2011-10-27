@@ -74,6 +74,19 @@ Debutten compares terms against patterns.<br/>There are two types of patterns: P
     </tr><tr>
       <td><code>{exact, Term}</code></td>
       <td>The exact term as compared with the =:= operator</td>
+    </tr><tr>
+      <td><code>{satisfies, Fun} or {satisfies, {Module, Function}}</code></td>
+      <td>Use a function to decide if it's valid validate</td>
+    </tr>
+</table>
+
+<b>Alternatives:</b>
+<table border="1">
+    <th>Pattern</th>
+    <th>Matches</th>
+    <tr>
+      <td><code>{oneof, [Pattern1, Pattern2...]}</code></td>
+      <td>Matches one of the patterns</td>
     </tr>
 </table>
 
