@@ -35,73 +35,208 @@
 %% @spec validate_or_throw(Data::term(), Pattern::term()) -> true | false
 %% @throws {invalid_data, {Pattern::term(), Data::term()}}
 validate_or_throw(Data, Pattern) ->
-	case ?MODULE:validate(Data, Pattern) of
-		true ->
+	case do_validate(Data, Pattern, [root]) of
+		{true, _, _, _, _} ->
 			true;
-		false ->
-			throw({error, {invalid_data, {Data, Pattern}}})
+		{false, Data, Pattern, Error, Path} ->
+			throw({error, {invalid_data, {Data, Pattern, Error, Path}}})
 	end.
 
 %% @doc Validate data against a pattern. Returns true if matching, returns false if not.
 %% @end
-%% @spec validate(Data::term(), Pattern::term()) -> true | false
-validate(_, {'_'}) -> 						true;
-validate(String, {string}) -> 		is_string(String);
-validate(Integer, {integer}) -> 	is_integer(Integer);
-validate(Float, {float}) -> 			is_float(Float);
-validate(Number, {numeric}) -> 		is_integer(Number) orelse is_float(Number);
-validate(Atom, {atom}) -> 				is_atom(Atom);
-validate(Binary, {binary}) -> 			is_binary(Binary);
-validate(Date, {datetime}) -> is_ISO_8601_without_seconds(Date);
-validate([], {list, []}) -> 			true;
-validate(List, {list, ['_']}) -> 	is_list(List);
-validate(List, {list, ['*', {Type}]}) ->
-	is_list(List) andalso lists:all(fun(E) -> validate(E, {Type}) end, List);
+-spec validate(Data::term(), Pattern::term()) -> true | false.
+validate(Data, Pattern) ->
+	case do_validate(Data, Pattern, [root]) of
+		{true, _, _, _, _} ->
+			true;
+		{false, _, _, _, _} ->
+			false
+	end.
 
-validate(List, {list, ['*' | [Pattern]]}) when is_list(List) ->
-		lists:all(fun(R) -> R =:= true end, [validate(E, Pattern) || E <- List]);
 
-validate(List, {list, Pattern_list}) when (is_list(List) and is_list(Pattern_list)) ->
-		length(List) =:= length(Pattern_list) andalso
-		lists:all(fun(R) -> R =:= true end, [validate(E, Pat) || {E, Pat} <- lists:zip(List, Pattern_list)]);
-
-validate(Dict, {dict, []}) ->
-	is_dict(Dict) andalso dict:size(Dict) =:= 0;
-	
-validate(Dict, {dict, ['_']}) -> is_dict(Dict);
-
-validate(Dict, {dict, ['_' | PatternList]}) -> is_dict(Dict) andalso validate(Dict, {dict, PatternList}, true);
-
-validate(Dict, {dict, PatternList}) -> is_dict(Dict) andalso validate(Dict, {dict, PatternList}, false);
-
-validate(Data, {exact, Pattern}) ->
-	Data =:= Pattern;
-
-validate(Data, {satisfies, Fun}) when is_function(Fun) ->
-	Fun(Data);
-
-validate(Data, {satisfies, {Function}}) ->
-	validate(Data, {satisfies, {erlang, Function}});
-
-validate(Data, {satisfies, {Module, Function}}) ->
-	apply(Module, Function, [Data]);
-
-validate(Data, {oneof, Patterns}) ->
-	lists:any(fun(E) -> E =:= true end, [validate(Data, P) || P <- Patterns]);
-
-validate(_, Pattern) ->
-	throw({error, {invalid_pattern, Pattern}}).
-
-validate(Dict, {dict, PatternList}, Tolerate_additional) ->
-	case is_dict(Dict) and is_list(PatternList) and ((Tolerate_additional =:= true) or (length(PatternList) =:= dict:size(Dict))) of
+-spec do_validate(Data::term(), Pattern::term(), Path::list()) -> {true|false, term(), term(), term(), list()}.
+do_validate(Data, {'_'}, Path) -> {true, Data, undefined, undefined, Path};
+do_validate(String, {string}, Path) ->
+	case is_string(String) of
+		true ->  {true, String, undefined, undefined, Path};
+		false -> {false, String, {string}, not_a_string, Path}
+	end;
+do_validate(Integer, {integer}, Path) ->
+	case is_integer(Integer) of
+		true ->  {true,  Integer, undefined, undefined, Path};
+		false -> {false, Integer, {integer}, not_an_integer, Path}
+	end;
+do_validate(Float, {float}, Path) ->
+	case is_float(Float) of
+		true ->  {true, Float, undefined, undefined, Path};
+		false -> {false, Float, {integer}, not_a_float, Path}
+	end;
+do_validate(Number, {numeric}, Path) ->
+	case is_integer(Number) orelse is_float(Number) of
+		true ->  {true,  Number, undefined, undefined, Path};
+		false -> {false, Number, {numeric}, not_numeric, Path}
+	end;
+do_validate(Atom, {atom}, Path) ->
+	case is_atom(Atom) of
+		true ->  {true, Atom, undefined, undefined, Path};
+		false -> {false, Atom, {atom}, not_an_atom, Path}
+	end;
+do_validate(Binary, {binary}, Path) ->
+	case is_binary(Binary) of
+		true ->  {true, Binary, undefined, undefined, Path};
+		false -> {false, Binary, {binary}, not_a_binary, Path}
+	end;
+do_validate(Date, {datetime}, Path) ->
+	case is_ISO_8601_without_seconds(Date) of
+		true ->  {true, Date, undefined, undefined, Path};
+		false -> {false, Date, {binary}, not_a_datetime, Path}
+	end;
+do_validate([], {list, []}, Path) ->  {true, [], undefined, undefined, Path};
+do_validate(List, {list, ['_']}, Path) ->
+	case is_list(List) of
+		true ->  {true,  List, undefined, undefined, Path};
+		false -> {false, List, {list, ['_']}, not_a_list, Path}
+	end;
+do_validate(List, Pattern = {list, ['*', {Type}]}, Path) ->
+	case is_list(List) of
 		true ->
-			try
-				lists:all(fun(R) -> R =:= true end, [validate(dict:fetch(Key, Dict), Pat) || {Key, Pat} <- PatternList])
-			catch
-				error:badarg -> false
+			case lists:filter(fun(E) -> {Valid, _, _, _, _} = do_validate(E, {Type}, [list_element|Path]), Valid =:= false end, List) of
+				[] ->
+					{true, List, undefined, undefined, Path};
+				[FaultyData|_] ->
+					do_validate(FaultyData, {Type}, [list_element|Path])
 			end;
 		false ->
-			false
+			{false, List, Pattern, not_a_list, Path}
+	end;
+
+do_validate(List, {list, ['*' | [Pattern]]}, Path) when is_list(List) ->
+	case lists:filter(fun(E) -> {Valid, _, _, _, _} = do_validate(E, Pattern, [list_element|Path]), Valid =:= false end, List) of
+		[] ->
+			{true, List, undefined, undefined, Path};
+		[FaultyData|_] ->
+			do_validate(FaultyData, Pattern, [list_element|Path])
+	end;
+
+do_validate(List, {list, PatternList}, Path) when (is_list(List) and is_list(PatternList)) ->
+		case length(List) =:= length(PatternList) of
+			true ->
+				case lists:filter(fun({E, Pat}) -> {Valid, _, _, _, _} = do_validate(E, Pat, [list_element|Path]), Valid =:= false end, lists:zip(List, PatternList)) of
+					[{FaultyData, Pattern}|_] ->
+						do_validate(FaultyData, Pattern, [list_element|Path]);
+					[] ->
+						{true, List, undefined, undefined, Path}
+				end;
+			false ->
+				{false, List, PatternList, wrong_length, Path}
+		end;
+
+do_validate(Dict, {dict, []}, Path) ->
+	case is_dict(Dict) of
+		true ->
+			case dict:size(Dict) =:= 0 of
+				true ->  {true,  Dict, undefined, undefined, Path};
+				false -> {false, Dict, {dict, []}, non_empty_dict, Path}
+			end;
+		false ->
+			{false, Dict, {dict, []}, not_a_dict, Path}
+	end;
+
+	
+do_validate(Dict, {dict, ['_']}, Path) ->
+	case is_dict(Dict) of
+		true ->
+			{true,  Dict, undefined, undefined, Path};
+		false ->
+			{false, Dict, {dict, []}, not_a_dict, Path}
+	end;
+
+
+do_validate(Dict, {dict, ['_' | PatternList]}, Path) ->
+	case is_dict(Dict) of
+		true ->
+			do_validate(Dict, {dict, PatternList}, true, Path);
+		false ->
+			{false, Dict, {dict, []}, not_a_dict, Path}
+	end;
+
+
+do_validate(Dict, {dict, PatternList}, Path) ->
+	case is_dict(Dict) of
+		true ->
+			do_validate(Dict, {dict, PatternList}, false, Path);
+		false ->
+			{false, Dict, {dict, []}, not_a_dict, Path}
+	end;
+
+do_validate(Data, {exact, Pattern}, Path) ->
+	case Data =:= Pattern of
+		true ->
+			{true,  Data, undefined, undefined, Path};
+		false ->
+			{false, Data, {exact, Pattern}, does_not_equal, Path}
+	end;
+		
+
+do_validate(Data, {satisfies, Fun}, Path) when is_function(Fun) ->
+	case Fun(Data) of
+		true ->  {true,  Data, undefined, undefined, Path};
+		false -> {false, Data, {satisfies, Fun}, does_not_satisfy_fun, Path}
+	end;
+
+do_validate(Data, {satisfies, {Function}}, Path) ->
+	do_validate(Data, {satisfies, {erlang, Function}}, Path);
+
+do_validate(Data, {satisfies, {Module, Function}}, Path) ->
+	case apply(Module, Function, [Data]) of
+		true ->  {true,  Data, undefined, undefined, Path};
+		false -> {false, Data, {satisfies, {Module, Function}}, does_not_satisfy_fun, Path}
+	end;
+
+do_validate(Data, {oneof, Patterns}, Path) ->
+	case lists:filter(fun(Pattern) -> {Valid, _, _, _, _} = do_validate(Data, Pattern, Path), Valid =:= true end, Patterns) of
+		[] ->
+			{false, Data, {oneof, Patterns}, no_match, Path};
+		_ ->
+			{true, Data, undefined, undefined, Path}
+	end;
+
+do_validate(Data, Pattern, Path) ->
+			{false, Data, Pattern, invalid_pattern, Path}.
+
+do_validate(Dict, {dict, PatternList}, TolerateAdditional, Path) ->
+	case is_dict(Dict) of
+		false -> 
+			{false, Dict, {dict, PatternList}, not_a_dict, Path};
+		true ->
+			case is_list(PatternList) of
+			false ->
+				{false, Dict, {dict, PatternList}, pattern_not_a_list, Path};
+			true ->
+				case (TolerateAdditional =:= true) or (length(PatternList) =:= dict:size(Dict)) of
+					false ->
+						{false, Dict, {dict, PatternList}, invalid_length, Path};
+					true ->
+						case lists:filter(
+							fun({Key, Pat}) ->
+								{Valid, _, _, _, _} = 
+								try
+									do_validate(dict:fetch(Key, Dict), Pat, [Key|Path])
+								catch
+									error:badarg -> {false, undefined, undefined, undefined, undefined}
+								end,
+								Valid =:= false end, PatternList) of
+							[] ->
+								{true, Dict, undefined, undefined, Path};
+							[{Key, Pat}] ->
+								try
+									do_validate(dict:fetch(Key, Dict), Pat, [Key|Path])
+								catch
+									error:badarg -> {false, Dict, Pat, key_does_not_exist, [Key|Path]}
+								end
+						end
+				end
+			end	
 	end.
 
 is_ISO_8601_without_seconds(Date) ->
@@ -129,13 +264,7 @@ is_string(String) ->
 -ifdef(TEST).
 
 	invalide_pattern_test() ->
-		Error =
-		try
-			validate(something, {bogus_pattern})
-		catch
-			throw:Reason -> Reason
-		end,
-		?assertEqual({error,{invalid_pattern,{bogus_pattern}}}, Error).
+		?assertEqual(false, validate(something, {bogus_pattern})).
 		
 	is_string_test() ->
 		?assertEqual(true, is_string("hello!")),
@@ -206,10 +335,10 @@ is_string(String) ->
   	?assertEqual(false, validate(random, {list, ['*', {integer}]})).
 
 	any_number_nested_list_test() ->
-		Pattern = {list, ['*',
-			{list, 
-				[{string}, {integer}]
-			}]},
+	Pattern = {list, ['*',
+		{list, 
+			[{string}, {integer}]
+	}]},
   	?assertEqual(true, validate([["1", 2], ["3", 5]], Pattern)),
   	?assertEqual(true, validate([], Pattern)),
   	?assertEqual(false, validate([["1", "2"], ["3", 5]], Pattern)).
