@@ -39,7 +39,7 @@ validate_or_throw(Data, Pattern) ->
 		{true, _, _, _, _} ->
 			true;
 		{false, MissmatchData, MissmatchPattern, Error, Path} ->
-			throw({error, {invalid_data, {MissmatchData, MissmatchPattern, Error, lists:reverse(Path)}}})
+			throw({error, {invalid_data, [{data, MissmatchData}, {pattern, MissmatchPattern}, {error, Error}, {path, lists:reverse(Path)}]}})
 	end.
 
 %% @doc Validate data against a pattern. Returns true if matching, returns false if not.
