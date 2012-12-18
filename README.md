@@ -107,7 +107,7 @@ Debutten compares terms against patterns.<br/>There are two types of patterns: P
       <td><code>{list, [{integer}, {string}, {atom}]}</code></td>
       <td>An list with exactly one integer, string and one atom</td>
     </tr><tr>
-      <td><code>{dict, []}</code></td>
+      <td><code>{dict, ['_']}</code></td>
       <td>A dictionary</td>
     </tr><tr>
     </tr><tr>
